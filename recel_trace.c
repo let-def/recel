@@ -34,8 +34,9 @@ recel_tracer recel_tracer_init(uint32_t w, uint32_t h, uint32_t *distance)
   };
 }
 
-bool recel_tracer_begin(recel_tracer *t, int32_t x, int32_t y)
+bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
 {
+  int32_t x = x2 / 2, y = y2 / 2;
   uint32_t level = DISTANCE(x, y);
 
   assert (level > 0);
@@ -44,13 +45,14 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x, int32_t y)
 
   char dx = 0, dy = 0;
 
-  if (DISTANCE(x - 1, y) < level)
+  // Find contour
+  if (DISTANCE((x2 - 1) / 2, y) < level)
     dy = 1;
-  else if (DISTANCE(x, y + 1) < level)
+  else if (DISTANCE(x, (y2 + 1) / 2) < level)
     dx = 1;
-  else if (DISTANCE(x + 1, y) < level)
+  else if (DISTANCE((x2 + 1) / 2, y) < level)
     dy = -1;
-  else if (DISTANCE(x, y - 1) < level)
+  else if (DISTANCE(x, (y2 - 1) / 2) < level)
     dx = -1;
   else
     return 0;
@@ -146,9 +148,14 @@ bool recel_line_same(recel_line l0, recel_line l1)
 static recel_line extract_line(recel_tracer *t)
 {
   return (recel_line){
-    .x = (t->x * 2) + ((1 - t->dy) / 2 + (1 - t->dx) / 2),
-    .y = (t->y * 2) + ((1 - t->dy) / 2 + (1 + t->dx) / 2),
-    .n = (t->n + 1) * 2,
+//    .x = (t->x * 2) + ((1 - t->dy) / 2 + (1 - t->dx) / 2),
+//    .y = (t->y * 2) + ((1 - t->dy) / 2 + (1 + t->dx) / 2),
+//    .n = (t->n + 1) * 2,
+//    .dx = t->dx,
+//    .dy = t->dy
+    .x = t->x,
+    .y = t->y,
+    .n = t->n + 1,
     .dx = t->dx,
     .dy = t->dy
   };

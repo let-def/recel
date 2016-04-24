@@ -20,8 +20,8 @@ static int32_t encode(uint32_t x, uint32_t y)
   return r;
 }
 
-#define DECODE_X(d) ((~(d) >> 15) & 0xFFFF)
-#define DECODE_Y(d) ((~(d)) & 0xFFFF)
+#define DECODE_X(d) ((~(d) >> 15) & 0x7FFF)
+#define DECODE_Y(d) ((~(d)) & 0x7FFF)
 
 #define PUSH(list, x, y) \
   do { \
@@ -141,4 +141,6 @@ uint32_t *recel_distance(uint32_t w, uint32_t h, uint32_t *input)
     worklist = distance_propagate(w, h, input, distance, worklist);
     worklist = distance_nextlevel(w, h, input, distance, level, worklist);
   }
+
+  return distance;
 }

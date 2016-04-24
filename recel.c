@@ -247,9 +247,11 @@ int16_t *recel_trace(recel_context *ctx)
           MASK(2*x+0,2*y+1) == -32768 && MASK(2*x+1,2*y+1) == -32768 &&
           tracer_init(ctx, &t, x, y))
       {
+        line prev2 = tracer_dline(ctx, &t);
         line prev = tracer_dline(ctx, &t);
         line curr = tracer_dline(ctx, &t);
         line next = tracer_dline(ctx, &t);
+        line next2 = tracer_dline(ctx, &t);
 
         line start = curr;
 
@@ -294,9 +296,11 @@ int16_t *recel_trace(recel_context *ctx)
             }
           }
 
+          prev2 = prev;
           prev = curr;
           curr = next;
-          next = tracer_dline(ctx, &t);
+          next = next2;
+          next2 = tracer_dline(ctx, &t);
 
           line_count += 1;
         }
