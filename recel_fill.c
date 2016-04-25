@@ -34,7 +34,7 @@ static void fill_lerp(int16_t *p, uint32_t count, int16_t lo, int16_t hi)
     *p = 0;
   else
     for (uint32_t i = 0; i < count; ++i)
-      p[i] = lo + ((hi - lo) * i) / (count - 1);
+      p[i] = lo + ((hi - lo) * i) / (count);
 }
 
 offset_map_t recel_line_map(uint32_t w, uint32_t h, uint32_t *distance)
@@ -45,40 +45,44 @@ offset_map_t recel_line_map(uint32_t w, uint32_t h, uint32_t *distance)
   for (uint32_t y = 1; y < h * 2 - 1; ++y) {
     for (uint32_t x = 1; x < w * 2 - 1; ++x) {
       if (recel_tracer_begin(&t, x, y) &&
-          (t.dx == 0 && VLINE(x / 2, y / 2)[0] == -32768 ||
-           t.dy == 0 && HLINE(x / 2, y / 2)[0] == -32768))
+          (t.e.dx == 0 && VLINE(x / 2, y / 2)[0] == -32768 ||
+           t.e.dy == 0 && HLINE(x / 2, y / 2)[0] == -32768))
       {
-        recel_line prev = recel_tracer_next_hv_line(&t);
-        recel_line curr = recel_tracer_next_hv_line(&t);
-        recel_line next = recel_tracer_next_hv_line(&t);
+        recel_straight prev = recel_tracer_next_line(&t);
+        recel_straight curr = recel_tracer_next_line(&t);
+        recel_straight next = recel_tracer_next_line(&t);
 
-        recel_line first = curr;
+        recel_straight first = curr;
         do {
-          bool hard_from = (prev.dx == curr.dy && prev.dy == - curr.dx);
-          bool hard_to = (next.dx == - curr.dy && next.dy == curr.dx);
+          bool hard_from = (prev.e.dx == curr.e.dy && prev.e.dy == - curr.e.dx);
+          bool hard_to = (next.e.dx == - curr.e.dy && next.e.dy == curr.e.dx);
 
-          int16_t *p = (curr.dx == 0) ? VLINE(curr.x, curr.y) : HLINE(curr.x, curr.y);
+          int16_t *p =
+            (curr.e.dx == 0)
+            ? VLINE(curr.e.x, curr.e.y)
+            : HLINE(curr.e.x, curr.e.y);
+
           // Curved
           if (hard_from == hard_to)
           {
             int16_t inner = hard_from ? - 32767 : 32767;
             int16_t outer = -inner;
-            fill_lerp(p, curr.n, outer, inner);
-            fill_lerp(p + curr.n, curr.n, inner, outer);
+            fill_lerp(p, curr.len, outer, inner);
+            fill_lerp(p + curr.len, curr.len, inner, outer);
           }
           else // Linear
           {
             int16_t from = hard_from ? 32767 : -32767;
             int16_t to = hard_to ? 32767 : -32767;
-            bool dir = (curr.dx | curr.dy) > 0;
-            fill_lerp(p, curr.n * 2, dir ? from : to, dir ? to : from);
+            bool dir = (curr.e.dx | curr.e.dy) > 0;
+            fill_lerp(p, curr.len * 2, dir ? from : to, dir ? to : from);
           }
 
           prev = curr;
           curr = next;
-          next = recel_tracer_next_hv_line(&t);
+          next = recel_tracer_next_line(&t);
         }
-        while (!recel_line_same(curr, first));
+        while (!recel_straight_same(curr, first));
       }
     }
   }
@@ -110,9 +114,9 @@ uint32_t *recel_render_map(uint32_t w, uint32_t h, offset_map_t map, uint32_t *i
         uint32_t c0 = IN(x, y);
         uint32_t c1 = IN(x + 1, y);
         OUT(2 * x + 0, 2 * y + 0) = vline[0] > -16384 ? c0 : c1;
-        OUT(2 * x + 1, 2 * y + 0) = vline[0] < 16384 : c1 : c0;
+        OUT(2 * x + 1, 2 * y + 0) = vline[0] < 16384 ? c1 : c0;
         OUT(2 * x + 0, 2 * y + 1) = vline[1] > -16384 ? c0 : c1;
-        OUT(2 * x + 1, 2 * y + 1) = vline[1] < 16384 : c1 : c0;
+        OUT(2 * x + 1, 2 * y + 1) = vline[1] < 16384 ? c1 : c0;
       }
       else
       { // HORZ

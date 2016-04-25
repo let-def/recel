@@ -46,21 +46,21 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
   char dx = 0, dy = 0;
 
   // Find contour
-  if (DISTANCE((x2 - 1) / 2, y) > level)
+  if (DISTANCE((x2 - 1) / 2, y) < level)
     dy = 1;
-  else if (DISTANCE(x, (y2 + 1) / 2) > level)
+  else if (DISTANCE(x, (y2 + 1) / 2) < level)
     dx = 1;
-  else if (DISTANCE((x2 + 1) / 2, y) > level)
+  else if (DISTANCE((x2 + 1) / 2, y) < level)
     dy = -1;
-  else if (DISTANCE(x, (y2 - 1) / 2) > level)
+  else if (DISTANCE(x, (y2 - 1) / 2) < level)
     dx = -1;
   else
     return 0;
 
   // Maximize line
   int32_t x0 = x - dx, y0 = y - dy, n = 0;
-  while (DISTANCE(x0, y0) = level &&
-         DISTANCE(x0 - dy, y0 + dx) > level)
+  while (DISTANCE(x0, y0) >= level &&
+         DISTANCE(x0 - dy, y0 + dx) < level)
   {
     x0 -= dx;
     y0 -= dy;
@@ -68,8 +68,8 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
   }
 
   int32_t x1 = x + dx, y1 = y + dy;
-  while (DISTANCE(x1, y1) = level &&
-         DISTANCE(x1 - dy, y1 + dx) > level)
+  while (DISTANCE(x1, y1) >= level &&
+         DISTANCE(x1 - dy, y1 + dx) < level)
   {
     x1 += dx;
     y1 += dy;

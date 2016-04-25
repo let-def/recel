@@ -52,7 +52,6 @@ bool recel_perfect_same(recel_perfect l0, recel_perfect l1);
 
 recel_straight recel_tracer_next_line(recel_tracer *t);
 
-/*
 typedef struct {
   uint32_t w, h;
   int16_t (*hlines)[2];
@@ -60,14 +59,6 @@ typedef struct {
 } offset_map_t;
 
 offset_map_t recel_line_map(uint32_t w, uint32_t h, uint32_t *distance);
-
-typedef struct {
-  int16_t x, y;
-} offset_t;
-
-offset_t *recel_solve(uint32_t w, uint32_t h, uint32_t *distance);
-
-uint32_t *recel_render(uint32_t w, uint32_t h, uint32_t *input, offset_t *offsets);
-*/
+uint32_t *recel_render_map(uint32_t w, uint32_t h, offset_map_t map, uint32_t *input);
 
 #endif /*!_RECEL_H__*/

@@ -1,7 +1,7 @@
 %.o: %.c Makefile recel.h
-	gcc -O3 -c $<
+	gcc -ggdb -O2 -c $<
 
-recel: main.o recel_distance.o recel_iter.o stb.o
+recel: main.o recel_distance.o recel_trace.o recel_fill.o stb.o
 	gcc -o $@ -lm $^
 
 clean:
