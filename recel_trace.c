@@ -5,13 +5,13 @@
 
 static void tracer_invariant(recel_tracer *t)
 {
-  int32_t x0 = t->x, y0 = t->y;
+  int32_t x0 = t->e.x, y0 = t->e.y;
 
-  char dx = t->dx, dy = t->dy;
+  char dx = t->e.dx, dy = t->e.dy;
   assert (dx == 0 || dy == 0);
   assert (!(dx == 0 && dy == 0));
 
-  int32_t x1 = x0 + dx * t->n, y1 = y0 + dy * t->n;
+  int32_t x1 = x0 + dx * t->len, y1 = y0 + dy * t->len;
 
   // Line is in shape
   assert (DISTANCE(x0, y0) >= t->level);
@@ -46,21 +46,21 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
   char dx = 0, dy = 0;
 
   // Find contour
-  if (DISTANCE((x2 - 1) / 2, y) < level)
+  if (DISTANCE((x2 - 1) / 2, y) > level)
     dy = 1;
-  else if (DISTANCE(x, (y2 + 1) / 2) < level)
+  else if (DISTANCE(x, (y2 + 1) / 2) > level)
     dx = 1;
-  else if (DISTANCE((x2 + 1) / 2, y) < level)
+  else if (DISTANCE((x2 + 1) / 2, y) > level)
     dy = -1;
-  else if (DISTANCE(x, (y2 - 1) / 2) < level)
+  else if (DISTANCE(x, (y2 - 1) / 2) > level)
     dx = -1;
   else
     return 0;
 
   // Maximize line
   int32_t x0 = x - dx, y0 = y - dy, n = 0;
-  while (DISTANCE(x0, y0) >= level &&
-         DISTANCE(x0 - dy, y0 + dx) < level)
+  while (DISTANCE(x0, y0) = level &&
+         DISTANCE(x0 - dy, y0 + dx) > level)
   {
     x0 -= dx;
     y0 -= dy;
@@ -68,8 +68,8 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
   }
 
   int32_t x1 = x + dx, y1 = y + dy;
-  while (DISTANCE(x1, y1) >= level &&
-         DISTANCE(x1 - dy, y1 + dx) < level)
+  while (DISTANCE(x1, y1) = level &&
+         DISTANCE(x1 - dy, y1 + dx) > level)
   {
     x1 += dx;
     y1 += dy;
@@ -77,11 +77,11 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
   }
 
   t->level = level;
-  t->x = x0 + dx;
-  t->y = y0 + dy;
-  t->dx = dx;
-  t->dy = dy;
-  t->n = n;
+  t->e.x = x0 + dx;
+  t->e.y = y0 + dy;
+  t->e.dx = dx;
+  t->e.dy = dy;
+  t->len = n;
 
   tracer_invariant(t);
 
@@ -90,9 +90,9 @@ bool recel_tracer_begin(recel_tracer *t, int32_t x2, int32_t y2)
 
 void recel_tracer_next(recel_tracer *t)
 {
-  char dx = t->dx, dy = t->dy;
+  int8_t dx = t->e.dx, dy = t->e.dy;
 
-  int32_t x0 = t->x + dx * t->n, y0 = t->y + dy * t->n;
+  int32_t x0 = t->e.x + dx * t->len, y0 = t->e.y + dy * t->len;
 
   tracer_invariant(t);
 
@@ -127,74 +127,58 @@ void recel_tracer_next(recel_tracer *t)
     n += 1;
   }
 
-  t->x = x0;
-  t->y = y0;
-  t->dx = dx;
-  t->dy = dy;
-  t->n = n;
+  t->e.x = x0;
+  t->e.y = y0;
+  t->e.dx = dx;
+  t->e.dy = dy;
+  t->len = n;
 
   tracer_invariant(t);
 }
 
-bool recel_line_same(recel_line l0, recel_line l1)
+bool recel_edge_same(recel_edge e0, recel_edge e1)
 {
   return (
-      l0.x == l1.x && l0.y == l1.y &&
-      l0.dx == l1.dx && l0.dy == l1.dy &&
-      l0.n == l1.n
+      e0.x  == e1.x  && e0.y  == e1.y &&
+      e0.dx == e1.dx && e0.dy == e1.dy
       );
 }
 
-static recel_line extract_line(recel_tracer *t)
+bool recel_straight_same(recel_straight l0, recel_straight l1)
 {
-  return (recel_line){
+  return (
+      recel_edge_same(l0.e, l1.e) &&
+      l0.len == l1.len
+      );
+}
+
+bool recel_perfect_same(recel_perfect l0, recel_perfect l1)
+{
+  return (
+      recel_edge_same(l0.e, l1.e) &&
+      l0.len   == l1.len   &&
+      l0.count == l1.count &&
+      l0.delta == l1.delta
+      );
+}
+
+static recel_straight extract_line(recel_tracer *t)
+{
+  return (recel_straight){
 //    .x = (t->x * 2) + ((1 - t->dy) / 2 + (1 - t->dx) / 2),
 //    .y = (t->y * 2) + ((1 - t->dy) / 2 + (1 + t->dx) / 2),
 //    .n = (t->n + 1) * 2,
 //    .dx = t->dx,
 //    .dy = t->dy
-    .x = t->x,
-    .y = t->y,
-    .n = t->n + 1,
-    .dx = t->dx,
-    .dy = t->dy
+    .e = t->e,
+    .len = t->len + 1,
   };
 }
 
-recel_line recel_tracer_next_hv_line(recel_tracer *t)
+recel_straight recel_tracer_next_line(recel_tracer *t)
 {
-  recel_line l = extract_line(t);
+  recel_straight l = extract_line(t);
   recel_tracer_next(t);
-
-  return l;
-}
-
-recel_line recel_tracer_next_hvd_line(recel_tracer *t)
-{
-  recel_line l = extract_line(t);
-  recel_tracer_next(t);
-
-  if (l.n == 2 && t->n == 0)
-  {
-    if (l.dx == 0)
-    {
-      assert (l.dy != 0);
-      l.dx = t->dx;
-      assert (l.dx != 0);
-    }
-    else
-    {
-      assert (l.dy == 0);
-      l.dy = t->dy;
-      assert (l.dy != 0);
-    }
-
-    while (t->n == 0 && (t->dx == l.dx || t->dy == l.dy))
-    {
-      l.n += 1;
-      recel_tracer_next(t);
-    }
-  }
 
   return l;
 }
