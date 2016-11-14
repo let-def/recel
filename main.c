@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "recel.h"
 #include "stb_image.h"
 #include "stb_image_write.h"
@@ -9,9 +10,10 @@ int main(int argc, char **argv)
   printf("loaded '%s', %d*%d*%d\n", argv[1], w, h, n);
 
   uint32_t *distance = recel_distance(w, h, input);
+  recel_save_dist("dist.png", w, h, distance);
 
-  offset_map_t offsets = recel_line_map(w, h, distance);
-  uint32_t *out = recel_render_map(w, h, offsets, input);
+  free(distance);
+  free(input);
 
-  stbi_write_png("out.png", 2 * w, 2 * h, 4, out, 0);
+  return 0;
 }

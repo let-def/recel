@@ -1,6 +1,7 @@
 #include "recel.h"
 #include <assert.h>
 #include <stdlib.h>
+#include "stb_image_write.h"
 
 /* Distance map */
 
@@ -9,8 +10,7 @@
 // - =0 => not yet processed
 // - <0 => linked-list of pixels to process
 
-#define INPUT(x,y) (input[(y) * w + (x)])
-#define DISTANCE(x,y) (distance[(y) * w + (x)])
+#define PIX(img,x,y) (img[(y) * w + (x)])
 
 static int32_t encode(uint32_t x, uint32_t y)
 {
@@ -25,10 +25,12 @@ static int32_t encode(uint32_t x, uint32_t y)
 
 #define PUSH(list, x, y) \
   do { \
-    assert (DISTANCE(x, y) == 0); \
-    DISTANCE(x, y) = list; \
+    assert (PIX(distance, x, y) == 0); \
+    PIX(distance, x, y) = list; \
     list = encode(x, y); \
   } while (0)
+
+#define NEW_IMAGE(t,w,h) ((t*)malloc(w * h * sizeof(t)))
 
 // Compute distance map
 
@@ -61,7 +63,7 @@ static int32_t distance_init(uint32_t w, uint32_t h, int32_t *distance)
   do { \
     uint32_t tmp_x = (x), tmp_y = (y); \
     if (tmp_x >= 0 && tmp_y >= 0 && tmp_x < w && tmp_y < h && \
-        INPUT(tmp_x, tmp_y) == col && DISTANCE(tmp_x, tmp_y) == 0) \
+        PIX(input, tmp_x, tmp_y) == col && PIX(distance, tmp_x, tmp_y) == 0) \
       PUSH(worklist, tmp_x, tmp_y); \
   } while (0)
 
@@ -77,7 +79,7 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
     int32_t sentinel1 = worklist, cursor = worklist;
     do {
       uint32_t x = DECODE_X(cursor), y = DECODE_Y(cursor);
-      uint32_t col = INPUT(x, y);
+      uint32_t col = PIX(input, x, y);
 
       CHECK8(worklist, col, x - 1, y - 1);
       CHECK8(worklist, col, x - 1, y + 0);
@@ -88,7 +90,7 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
       CHECK8(worklist, col, x + 1, y + 0);
       CHECK8(worklist, col, x + 1, y + 1);
 
-      cursor = DISTANCE(x, y);
+      cursor = PIX(distance, x, y);
     } while (cursor != sentinel);
     sentinel = sentinel1;
   }
@@ -101,7 +103,7 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
     uint32_t tmp_x = (x), tmp_y = (y); \
     if (tmp_x >= 0 && tmp_y >= 0 && \
         tmp_x < w && tmp_y < h && \
-        DISTANCE(tmp_x, tmp_y) == 0) \
+        PIX(distance, tmp_x, tmp_y) == 0) \
       PUSH(worklist, tmp_x, tmp_y);  \
   } while (0)
 
@@ -120,9 +122,9 @@ static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
     CHECK4(worklist, x + 1, y + 0);
     CHECK4(worklist, x + 0, y + 1);
 
-    cursor = DISTANCE(x, y);
+    cursor = PIX(distance, x, y);
 
-    DISTANCE(x, y) = level;
+    PIX(distance, x, y) = level;
   }
 
   return worklist;
@@ -130,7 +132,7 @@ static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
 
 uint32_t *recel_distance(uint32_t w, uint32_t h, uint32_t *input)
 {
-  int32_t *distance = malloc(w * h * sizeof(int32_t));
+  int32_t *distance = NEW_IMAGE(int32_t, w, h);
   int32_t worklist = distance_init(w, h, distance);
   int32_t level = 0;
 
@@ -142,5 +144,36 @@ uint32_t *recel_distance(uint32_t w, uint32_t h, uint32_t *input)
     worklist = distance_nextlevel(w, h, input, distance, level, worklist);
   }
 
-  return distance;
+  return (uint32_t*)distance;
+}
+
+uint8_t *recel_dist_to_u8(uint32_t w, uint32_t h, uint32_t *input)
+{
+  uint32_t max = 0;
+  for (uint32_t y = 0; y < h; ++y)
+  {
+    for (uint32_t x = 0; x < w; ++x)
+    {
+      if (PIX(input, x, y) > max)
+        max = PIX(input, x, y);
+    }
+  }
+
+  uint8_t *out = NEW_IMAGE(uint8_t, w, h);
+  for (uint32_t y = 0; y < h; ++y)
+  {
+    for (uint32_t x = 0; x < w; ++x)
+    {
+      PIX(out, x, y) = PIX(input, x, y) * 255 / max;
+    }
+  }
+
+  return out;
+}
+
+void recel_save_dist(const char *name, uint32_t w, uint32_t h, uint32_t *dist)
+{
+  uint8_t *out = recel_dist_to_u8(w, h, dist);
+  stbi_write_png(name, w, h, 1, out, 0);
+  free(out);
 }
