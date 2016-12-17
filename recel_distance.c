@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "stb_image_write.h"
+#include "fasttable.h"
 
 /* Distance map */
 
@@ -9,8 +10,6 @@
 // - >0 => actual distance
 // - =0 => not yet processed
 // - <0 => linked-list of pixels to process
-
-#define PIX(img,x,y) (img[(y) * w + (x)])
 
 static int32_t encode(uint32_t x, uint32_t y)
 {
@@ -29,8 +28,6 @@ static int32_t encode(uint32_t x, uint32_t y)
     PIX(distance, x, y) = list; \
     list = encode(x, y); \
   } while (0)
-
-#define NEW_IMAGE(t,w,h) ((t*)malloc(w * h * sizeof(t)))
 
 // Compute distance map
 
@@ -59,7 +56,7 @@ static int32_t distance_init(uint32_t w, uint32_t h, int32_t *distance)
   return worklist;
 }
 
-#define CHECK8(worklist, col, x, y) \
+#define PROPAGATE(worklist, col, x, y) \
   do { \
     uint32_t tmp_x = (x), tmp_y = (y); \
     if (tmp_x >= 0 && tmp_y >= 0 && tmp_x < w && tmp_y < h && \
@@ -70,7 +67,7 @@ static int32_t distance_init(uint32_t w, uint32_t h, int32_t *distance)
 // Fill current level
 
 static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
-    int32_t *distance, int32_t worklist)
+    fasttable_t *table, int32_t *distance, int32_t worklist)
 {
   int32_t sentinel = -1;
 
@@ -81,14 +78,14 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
       uint32_t x = DECODE_X(cursor), y = DECODE_Y(cursor);
       uint32_t col = PIX(input, x, y);
 
-      CHECK8(worklist, col, x - 1, y - 1);
-      CHECK8(worklist, col, x - 1, y + 0);
-      CHECK8(worklist, col, x - 1, y + 1);
-      CHECK8(worklist, col, x + 0, y - 1);
-      CHECK8(worklist, col, x + 0, y + 1);
-      CHECK8(worklist, col, x + 1, y - 1);
-      CHECK8(worklist, col, x + 1, y + 0);
-      CHECK8(worklist, col, x + 1, y + 1);
+      PROPAGATE(worklist, col, x - 1, y - 1);
+      PROPAGATE(worklist, col, x - 1, y + 0);
+      PROPAGATE(worklist, col, x - 1, y + 1);
+      PROPAGATE(worklist, col, x + 0, y - 1);
+      PROPAGATE(worklist, col, x + 0, y + 1);
+      PROPAGATE(worklist, col, x + 1, y - 1);
+      PROPAGATE(worklist, col, x + 1, y + 0);
+      PROPAGATE(worklist, col, x + 1, y + 1);
 
       cursor = PIX(distance, x, y);
     } while (cursor != sentinel);
@@ -98,7 +95,7 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
   return worklist;
 }
 
-#define CHECK4(worklist, x, y) \
+#define PUSHNEXT(worklist, x, y) \
   do { \
     uint32_t tmp_x = (x), tmp_y = (y); \
     if (tmp_x >= 0 && tmp_y >= 0 && \
@@ -117,10 +114,10 @@ static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
   {
     uint32_t x = DECODE_X(cursor), y = DECODE_Y(cursor);
 
-    CHECK4(worklist, x + 0, y - 1);
-    CHECK4(worklist, x - 1, y + 0);
-    CHECK4(worklist, x + 1, y + 0);
-    CHECK4(worklist, x + 0, y + 1);
+    PUSHNEXT(worklist, x + 0, y - 1);
+    PUSHNEXT(worklist, x - 1, y + 0);
+    PUSHNEXT(worklist, x + 1, y + 0);
+    PUSHNEXT(worklist, x + 0, y + 1);
 
     cursor = PIX(distance, x, y);
 
@@ -135,12 +132,15 @@ uint32_t *recel_distance(uint32_t w, uint32_t h, uint32_t *input)
   int32_t *distance = NEW_IMAGE(int32_t, w, h);
   int32_t worklist = distance_init(w, h, distance);
   int32_t level = 0;
+  fasttable_t *table = fasttable_new();
 
   while (worklist != -1)
   {
     level += 1;
 
-    worklist = distance_propagate(w, h, input, distance, worklist);
+    fasttable_flush(table);
+
+    worklist = distance_propagate(w, h, input, table, distance, worklist);
     worklist = distance_nextlevel(w, h, input, distance, level, worklist);
   }
 
