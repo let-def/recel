@@ -42,7 +42,7 @@ static void fasttable_resize(fasttable_t *t)
   struct cell_s *oldcells = t->cells;
 
   int new_capacity = oldsize * 2, mask = new_capacity - 1;
-  struct cell_s *newcells = calloc(sizeof(struct cell_s), t->capacity);
+  struct cell_s *newcells = calloc(sizeof(struct cell_s), new_capacity);
 
   t->capacity = new_capacity;
   t->cells = newcells;
@@ -76,7 +76,7 @@ uint32_t *fasttable_cell(fasttable_t *t, uint32_t key)
   while (cells[index & mask].gen == t->gen)
   {
     if (cells[index & mask].key == key)
-      return &t->cells[index & mask].value;
+      return &cells[index & mask].value;
     index += 1;
   }
 
@@ -90,6 +90,9 @@ uint32_t *fasttable_cell(fasttable_t *t, uint32_t key)
   if (t->filled * 4 >= t->capacity * 3)
   {
     fasttable_resize(t);
+    mask = t->capacity - 1;
+    cells = t->cells;
+
     index = fasttable_index(key);
 
     while (cells[index & mask].key != key)
