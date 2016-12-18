@@ -26,18 +26,21 @@ static int32_t encode(uint32_t x, uint32_t y)
   do { \
     assert (PIX(distance, x, y) == 0); \
     PIX(distance, x, y) = list; \
+    colorcounter_incr(counter, PIX(input, x, y)); \
     list = encode(x, y); \
   } while (0)
 
 // Compute distance map
 
-static int32_t distance_init(uint32_t w, uint32_t h, int32_t *distance)
+static int32_t distance_init(uint32_t w, uint32_t h, colorcounter_t *counter,  const uint32_t *input, int32_t *distance)
 {
   // Fill with 0
   for (uint32_t i = 0, last = w * h - 1 ; i <= last; ++i)
     distance[i] = 0;
 
   int32_t worklist = -1;
+
+  colorcounter_start(counter);
 
   // Fill worklist with borders (horizontal)
   for (uint32_t i = 0, j = h - 1, last = w - 1; i <= last; ++i)
@@ -66,8 +69,9 @@ static int32_t distance_init(uint32_t w, uint32_t h, int32_t *distance)
 
 // Fill current level
 
-static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
-    fasttable_t *table, int32_t *distance, int32_t worklist)
+static int32_t distance_propagate(uint32_t w, uint32_t h,
+    colorcounter_t *counter,
+    const uint32_t *input, int32_t *distance, int32_t worklist)
 {
   int32_t sentinel = -1;
 
@@ -104,8 +108,10 @@ static int32_t distance_propagate(uint32_t w, uint32_t h, uint32_t *input,
       PUSH(worklist, tmp_x, tmp_y);  \
   } while (0)
 
-static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
-    int32_t *distance, int32_t level, int32_t worklist)
+static int32_t distance_nextlevel(uint32_t w, uint32_t h,
+    colorcounter_t *counter,
+    const uint32_t *input, int32_t *distance,
+    int32_t level, int32_t worklist)
 {
   int32_t cursor = worklist;
   worklist = -1;
@@ -121,7 +127,8 @@ static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
 
     cursor = PIX(distance, x, y);
 
-    PIX(distance, x, y) = level;
+    PIX(distance, x, y) = level +
+      colorcounter_get_rank(counter, PIX(input, x, y));
   }
 
   return worklist;
@@ -130,18 +137,19 @@ static int32_t distance_nextlevel(uint32_t w, uint32_t h, uint32_t *input,
 uint32_t *recel_distance(uint32_t w, uint32_t h, uint32_t *input)
 {
   int32_t *distance = NEW_IMAGE(int32_t, w, h);
-  int32_t worklist = distance_init(w, h, distance);
-  int32_t level = 0;
-  fasttable_t *table = fasttable_new();
+  colorcounter_t *counter = colorcounter_new();
+  int32_t worklist = distance_init(w, h, counter, input, distance);
+  int32_t level = 1;
 
   while (worklist != -1)
   {
-    level += 1;
+    level += colorcounter_distinct_count(counter);
 
-    fasttable_flush(table);
+    colorcounter_start(counter);
+    worklist = distance_propagate(w, h, counter, input, distance, worklist);
 
-    worklist = distance_propagate(w, h, input, table, distance, worklist);
-    worklist = distance_nextlevel(w, h, input, distance, level, worklist);
+    colorcounter_rank(counter);
+    worklist = distance_nextlevel(w, h, counter, input, distance, level, worklist);
   }
 
   return (uint32_t*)distance;

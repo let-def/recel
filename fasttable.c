@@ -4,11 +4,11 @@
 struct cell_s {
   uint32_t key;
   uint32_t gen;
-  void     *value;
+  uint32_t value;
 };
 
 struct fasttable {
-  int size;
+  int capacity;
   unsigned int gen;
   struct cell_s *cells;
   int filled;
@@ -17,7 +17,7 @@ struct fasttable {
 fasttable_t *fasttable_new(void)
 {
   fasttable_t *t = malloc(sizeof(fasttable_t));
-  t->size = 16;
+  t->capacity = 16;
   t->filled = 0;
   t->gen = 1;
   t->cells = calloc(sizeof(struct cell_s), 16);
@@ -38,13 +38,13 @@ static uint32_t fasttable_index(uint32_t key)
 static void fasttable_resize(fasttable_t *t)
 {
   int oldgen = t->gen;
-  int oldsize = t->size;
+  int oldsize = t->capacity;
   struct cell_s *oldcells = t->cells;
 
-  int newsize = oldsize * 2, mask = newsize - 1;
-  struct cell_s *newcells = calloc(sizeof(struct cell_s), t->size);
+  int new_capacity = oldsize * 2, mask = new_capacity - 1;
+  struct cell_s *newcells = calloc(sizeof(struct cell_s), t->capacity);
 
-  t->size = newsize;
+  t->capacity = new_capacity;
   t->cells = newcells;
   t->gen = 1;
 
@@ -67,10 +67,10 @@ static void fasttable_resize(fasttable_t *t)
   free(oldcells);
 }
 
-void **fasttable_cell(fasttable_t *t, uint32_t key)
+uint32_t *fasttable_cell(fasttable_t *t, uint32_t key)
 {
   int index = fasttable_index(key);
-  int mask = t->size - 1;
+  int mask = t->capacity - 1;
   struct cell_s *cells = t->cells;
 
   while (cells[index & mask].gen == t->gen)
@@ -85,9 +85,9 @@ void **fasttable_cell(fasttable_t *t, uint32_t key)
   struct cell_s *cell = &cells[index & mask];
   cell->gen = t->gen;
   cell->key = key;
-  cell->value = NULL;
+  cell->value = -1;
 
-  if (t->filled * 4 >= t->size * 3)
+  if (t->filled * 4 >= t->capacity * 3)
   {
     fasttable_resize(t);
     index = fasttable_index(key);
@@ -103,6 +103,88 @@ void **fasttable_cell(fasttable_t *t, uint32_t key)
 
 void fasttable_flush(fasttable_t *t)
 {
-  t->gen += 1;
+  if (t->filled != 0)
+  {
+    t->gen += 1;
+    t->filled = 0;
+  }
+}
+
+struct colorcell_s {
+  uint32_t key;
+  uint32_t value;
+};
+
+struct colorcounter {
+  struct colorcell_s *cells;
+  int filled;
+  int capacity;
+  fasttable_t *table;
+};
+
+colorcounter_t *colorcounter_new(void)
+{
+  colorcounter_t *t = malloc(sizeof(colorcounter_t));
+  t->capacity = 16;
   t->filled = 0;
+  t->cells = calloc(sizeof(struct colorcell_s), 16);
+  t->table = fasttable_new();
+  return t;
+}
+
+void colorcounter_delete(colorcounter_t *t)
+{
+  fasttable_delete(t->table);
+  free(t->cells);
+  free(t);
+}
+
+void colorcounter_start(colorcounter_t *t)
+{
+  t->filled = 0;
+  fasttable_flush(t->table);
+}
+
+void colorcounter_incr(colorcounter_t *t, uint32_t value)
+{
+  uint32_t *index = fasttable_cell(t->table, value);
+  if (*index == -1)
+  {
+    *index = t->filled;
+    t->filled += 1;
+    if (t->filled >= t->capacity)
+    {
+      t->capacity = t->filled * 2;
+      t->cells = realloc(t->cells, t->capacity * sizeof(struct colorcell_s));
+    }
+    t->cells[*index].key = value;
+    t->cells[*index].value = 1;
+  }
+  else
+    t->cells[*index].value += 1;
+}
+
+uint32_t colorcounter_distinct_count(colorcounter_t *t)
+{
+  return t->filled;
+}
+
+static int colorcell_compar(const void *a, const void *b)
+{
+  const struct colorcell_s *ca = a, *cb = b;
+  return (long int)cb->value - (long int)ca->value;
+}
+
+void colorcounter_rank(colorcounter_t *t)
+{
+  qsort(t->cells, t->filled, sizeof(struct colorcell_s), colorcell_compar);
+  for (int i = 0; i < t->filled; ++i)
+  {
+    *fasttable_cell(t->table, t->cells[i].key) = i;
+  }
+}
+
+int colorcounter_get_rank(colorcounter_t *t, uint32_t value)
+{
+  return *fasttable_cell(t->table, value);
 }
