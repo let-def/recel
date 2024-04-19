@@ -34,7 +34,7 @@ int inflate_line(const uint32_t *d1, const uint32_t *d2, const uint32_t *i1, con
   else if (l)
   {
     int x = x0;
-    int d = (x1 - x0) / 2;
+    int d = (x1 - x0 + 1) / 2;
 
     for (; x < x0 + d; x++)
       o[x] = i2[x];
