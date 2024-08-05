@@ -98,6 +98,20 @@ void inflate(const uint32_t *dist, const uint32_t *imag, int w, int h, uint32_t 
   }
 }
 
+void fliph(uint32_t *image, int w, int h)
+{
+  for (int y = 0; y < h - 1; y++)
+  {
+    uint32_t *p = image + w * y;
+    for (int x = 0; x < w / 2; x++)
+    {
+      uint32_t v = p[x];
+      p[x] = p[w - 1 - x];
+      p[w - 1 - x] = v;
+    }
+  }
+}
+
 void interleave(uint32_t *out, const uint32_t *outer, const uint32_t *inner, int w, int h)
 {
   memcpy(out, outer, sizeof(uint32_t)*w);
@@ -121,6 +135,19 @@ int main(int argc, char **argv)
 {
   int w, h, n;
   uint32_t *imag, *dist, *disti, *imagi, *distii, *imagii;
+
+  bool do_fliph = 0;
+  bool do_flipv = 0;
+  char *input = 0;
+
+  for (int i = 1; i < argc; i++)
+  {
+    if (strcmp(argv[i], "-h") == 0)
+      do_fliph = 1;
+    if (strcmp(argv[i], "-v") == 0)
+      do_flipv = 1;
+  }
+
 
   imag = (uint32_t*)stbi_load(argv[1], &w, &h, &n, 4);
   printf("loaded '%s', %d*%d*%d\n", argv[1], w, h, n);
