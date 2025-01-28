@@ -56,7 +56,7 @@ int inflate_line(const uint32_t *d1, const uint32_t *d2, const uint32_t *i1, con
   else 
   {
     int x = x0;
-    int d = (x1 - x0) / 4;
+    int d = (x1 - x0 + 3) / 4;
 
     for (; x < x0 + d; x++)
       o[x] = i1[x];
@@ -166,6 +166,8 @@ int main(int argc, char **argv)
     imagii = NEW_IMAGE(uint32_t, w, 2*h-1);
     interleave(distii, dist, disti, w, h);
     interleave(imagii, imag, imagi, w, h);
+    if (i == 0)
+    stbi_write_png("outh.png", w, 2*h-1, 4, imagii, 0);
     h = h * 2 - 1;
 
     free(imag);
