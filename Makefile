@@ -2,7 +2,7 @@ OBJECTS=main.o recel_distance.o recel_scan.o stb.o fasttable.o
 
 all: build/recel
 
-build/%.o: %.c Makefile
+build/%.o: %.c Makefile | build
 	gcc -ggdb -O2 -o $@ -c $<
 
 build/recel: $(patsubst %.o,build/%.o, $(OBJECTS))
@@ -11,7 +11,7 @@ build/recel: $(patsubst %.o,build/%.o, $(OBJECTS))
 clean:
 	rm -rf build/*
 
-build/:
+build:
 	mkdir $@
 
 .PHONY: all clean
