@@ -21,6 +21,34 @@ bool test(uint32_t x)
   return (x & 0xff) > 0x7f;
 }
 
+void stretch_line(uint32_t *L0, uint32_t *l0, uint32_t *l1, uint32_t *L1,
+                  int p, int w, int n)
+{
+  if (!test(L0[-1]))
+    p = 0;
+  if (!test(L0[w]))
+    n = 0;
+
+  if (w == 1)
+  {
+    // Short-edge
+    if (p && n)
+      l0[0] = l1[0] = L1[0];
+    else
+    {
+      l0[0] = L0[0];
+      l1[0] = L1[0];
+    }
+  }
+  else
+  {
+    // Long-edge
+    if (p && n)
+
+    else if (
+  }
+}
+
 uint32_t *stretch3(const uint32_t *in, int w, int h)
 {
   if (h == 0)
@@ -42,9 +70,45 @@ uint32_t *stretch3(const uint32_t *in, int w, int h)
 
     // NN
 
-    memcpy(l0, L0,  sizeof(uint32_t) * w);
-    memcpy(l1, L1,  sizeof(uint32_t) * w);
+    l0[0] = L0[0];
+    l1[0] = L1[0];
+    l0[w-1] = L0[w-1];
+    l1[w-1] = L1[w-1];
 
+    // Length of previous edge
+    int p = 1;
+    int x0, x1 = 1, x2 = 2;
+
+    while (x2 < w)
+    {
+      x0 = x1;
+      x1 = x2;
+
+      // Find next edge
+      {
+        bool t0 = test(L0[x1]), t1 = test(L1[x1]);
+        do x2++;
+        while (x2 < w && test(L0[x2]) == t0 && test(L1[x2]) == t1);
+      }
+
+      // Current edge goes for x0 to x1, next edge for x1 to x2
+      bool t0 = test(L0[x0]), t1 = test(L1[x0]);
+      if (t0 == t1)
+      {
+        for (int i = x0; i < x1; i++)
+        {
+          l0[i] = L0[i];
+          l1[i] = L1[i];
+        }
+      }
+      else if (t0)
+        stretch_line(L0 + x0, l0 + x0, l1 + x0, L1 + x0,
+                     p, x1 - x0, x2 - x1);
+      else if (t1)
+        stretch_line(L1 + x0, l1 + x0, l0 + x0, L0 + x0,
+                     p, x1 - x0, x2 - x1);
+      p = (x1 - x0);
+    }
   }
 
   return out;
